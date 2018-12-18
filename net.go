@@ -29,7 +29,14 @@ import (
 	"github.com/eclipse/paho.mqtt.golang/packets"
 	"golang.org/x/net/proxy"
 	"golang.org/x/net/websocket"
+
+	"github.com/magisterquis/connectproxy"
 )
+
+func init() {
+	proxy.RegisterDialerType("http", connectproxy.New)
+	proxy.RegisterDialerType("https", connectproxy.New)
+}
 
 func signalError(c chan<- error, err error) {
 	select {
@@ -40,6 +47,21 @@ func signalError(c chan<- error, err error) {
 
 func openConnection(uri *url.URL, tlsc *tls.Config, timeout time.Duration, headers http.Header) (net.Conn, error) {
 	switch uri.Scheme {
+	case "wsp":
+		/*
+		   type Dialer interface {
+		   	// Dial connects to the given address via the proxy.
+		   	Dial(network, addr string) (c net.Conn, err error)
+		   }
+		*/
+		proxyDialer := proxy.FromAllProxy("http://127.0.0.1:8888", "")
+
+		conn, err := proxyDialer.Dial("ws", fmt.Sprintf("%s", uri.Host))
+		if err != nil {
+			return nil, err
+		}
+		return conn, nil
+
 	case "ws":
 		config, _ := websocket.NewConfig(uri.String(), fmt.Sprintf("http://%s", uri.Host))
 		config.Protocol = []string{"mqtt"}
